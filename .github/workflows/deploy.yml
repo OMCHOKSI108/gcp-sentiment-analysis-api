@@ -49,4 +49,5 @@ jobs:
         flags: '--allow-unauthenticated'
         
     - name: Show Deployed URL
-      run: echo "Deployment successful! URL: ${{ steps.deploy.outputs.url }}"
+      run: |
+        echo "Deployment successful! URL: ${{ steps.deploy.outputs.url }}"
