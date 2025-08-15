@@ -1,3 +1,12 @@
 GCP_PROJECT_ID --> within project you will get 
 GCP_SA_KEY    --> IN IAM ROLES create new role cloud run admin and service account admin and then add new keys 
 you will get json option to download and save and then add this both in to actions -< security of github 
+
+
+gcloud artifacts repositories create sentiment-analysis-repo \
+    --repository-format=docker \
+    --location=us-central1 \
+    --description="Repository for sentiment analysis app"
+
+
+    

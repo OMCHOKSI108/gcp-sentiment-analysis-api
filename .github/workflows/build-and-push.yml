@@ -1,34 +1,43 @@
-name: CI - Build and Push Container
+# .github/workflows/build-and-push.yml
+name: CI - Build and Push Container to Google Artifact Registry
 
 on:
   push:
     branches: [ "main" ]
 
 env:
-  # The name of the image will be ghcr.io/<your-github-username>/<your-repo-name>
-  # The tr command forces it to lowercase, which is required by Docker.
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  # The location of your repo and the repo name
+  GAR_LOCATION: us-central1
+  GAR_REPOSITORY: sentiment-analysis-repo
+  # The name for your container image
+  IMAGE_NAME: sentiment-api
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write # Grant permission to push to GHCR
+      contents: 'read'
+      id-token: 'write' # Required for authentication
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v2
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: 'google-github-actions/auth@v1'
       with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }} # This is a temporary token, very secure
+        workload_identity_provider: 'projects/958522348587/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+        service_account: 'sentiment-analysis-api@burnished-net-469105-s2.iam.gserviceaccount.com'
+
+    - name: Set up Cloud SDK
+      uses: 'google-github-actions/setup-gcloud@v1'
+
+    - name: Docker auth
+      run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
 
     - name: Build and push Docker image
       run: |
-        IMAGE_ID=$(echo $IMAGE_NAME | tr '[:upper:]' '[:lower:]')
-        docker build -t $IMAGE_ID:${{ github.sha }} .
-        docker push $IMAGE_ID:${{ github.sha }}
+        IMAGE_URI="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}"
+        docker build -t $IMAGE_URI:${{ github.sha }} .
+        docker push $IMAGE_URI:${{ github.sha }}
