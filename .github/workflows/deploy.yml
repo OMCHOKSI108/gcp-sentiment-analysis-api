@@ -1,16 +1,26 @@
+# .github/workflows/deploy.yml
 name: CD - Deploy to Cloud Run
 
 on:
   workflow_run:
-    workflows: ["CI - Build and Push Container"]
+    workflows: ["CI - Build and Push Container to Google Artifact Registry"]
     types:
       - completed
 
+env:
+  GCP_PROJECT_ID: burnished-net-469105-s2
+  GAR_LOCATION: us-central1
+  GAR_REPOSITORY: sentiment-analysis-repo
+  IMAGE_NAME: sentiment-api
+  REGION: us-central1
+
 jobs:
   deploy:
-    # Only run this job if the CI workflow was successful
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
 
     steps:
     - name: Checkout code
@@ -19,33 +29,24 @@ jobs:
     - name: Authenticate to Google Cloud
       uses: 'google-github-actions/auth@v1'
       with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
-    - name: Set up Cloud SDK
-      uses: 'google-github-actions/setup-gcloud@v1'
-
-# THIS STEP REPLACES THE OLD ONE
-    - name: Get latest image URI from Artifact Registry
+        # CORRECTED POOL NAME HERE
+        workload_identity_provider: 'projects/958522348587/locations/global/workloadIdentityPools/github-pool-main/providers/github-provider'
+        service_account: 'sentiment-analysis-api@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com'
+        
+    - name: Get latest image URI
       id: get-image
       run: |
-        IMAGE_URI="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.event.workflow_run.head_sha }}"
+        IMAGE_URI="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.event.workflow_run.head_sha }}"
         echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_OUTPUT
-      env:
-        GAR_LOCATION: us-central1
-        GAR_REPOSITORY: sentiment-analysis-repo
-        IMAGE_NAME: sentiment-api
         
     - name: Deploy to Cloud Run
       id: deploy
       uses: google-github-actions/deploy-cloudrun@v1
       with:
-        service: sentiment-api-service # This will be the name of your service
-        region: us-central1 # You can change this to your preferred region
+        service: sentiment-api-service
+        region: ${{ env.REGION }}
         image: ${{ steps.get-image.outputs.IMAGE_URI }}
-        project_id: ${{ secrets.GCP_PROJECT_ID }}
-        # This flag makes your API public so you can test it
         flags: '--allow-unauthenticated'
         
     - name: Show Deployed URL
-      run: |
-        echo "Deployment successful! URL: ${{ steps.deploy.outputs.url }}"
+      run: echo "Deployment successful! URL: ${{ steps.deploy.outputs.url }}"

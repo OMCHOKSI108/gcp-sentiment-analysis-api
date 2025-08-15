@@ -5,3 +5,12 @@ gcloud artifacts repositories create sentiment-analysis-repo \
     --repository-format=docker \
     --location=us-central1 \
     --description="Repository for sentiment analysis app"
+
+
+gcloud iam workload-identity-pools create "github-pool" \
+  --project="burnished-net-469105-s2" \
+  --location="global" \
+  --display-name="GitHub Actions Pool"
+
+
+  
