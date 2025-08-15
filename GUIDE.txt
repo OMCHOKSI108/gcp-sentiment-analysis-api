@@ -1,16 +1,114 @@
-GCP_PROJECT_ID --> within project you will get 
-GCP_SA_KEY    --> IN IAM ROLES create new role cloud run admin and service account admin and then add new keys 
-you will get json option to download and save and then add this both in to actions -< security of github 
+============================================================
+Final Google Cloud Setup Guidelines for CI/CD Project
+Project ID: burnished-net-469105-s2
+Service Account: sentiment-analysis-api@burnished-net-469105-s2.iam.gserviceaccount.com
+GitHub Repo: OMCHOKSI108/gcp-sentiment-analysis-api
+============================================================
+
+OPTION 1: SETUP WITH SHELL COMMANDS (Cloud Shell)
+------------------------------------------------------------
+Run these commands in order in the Google Cloud Shell to configure a project from scratch.
+
+# === SECTION 1: ENABLE NECESSARY APIS ===
+gcloud services enable iamcredentials.googleapis.com \
+  run.googleapis.com \
+  artifactregistry.googleapis.com \
+  cloudbuild.googleapis.com \
+  --project="burnished-net-469105-s2"
+
+
+# === SECTION 2: CREATE ARTIFACT REGISTRY REPOSITORY ===
 gcloud artifacts repositories create sentiment-analysis-repo \
     --repository-format=docker \
     --location=us-central1 \
-    --description="Repository for sentiment analysis app"
+    --description="Repository for sentiment analysis app" \
+    --project="burnished-net-469105-s2"
 
 
-gcloud iam workload-identity-pools create "github-pool" \
+# === SECTION 3: CONFIGURE WORKLOAD IDENTITY FEDERATION (Authentication) ===
+
+# 3.1. Create the Workload Identity Pool.
+gcloud iam workload-identity-pools create "github-pool-main" \
   --project="burnished-net-469105-s2" \
   --location="global" \
   --display-name="GitHub Actions Pool"
 
+# 3.2. Create the OIDC Provider within the pool.
+gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+  --project="burnished-net-469105-s2" \
+  --location="global" \
+  --workload-identity-pool="github-pool-main" \
+  --display-name="GitHub Actions Provider" \
+  --attribute-mapping="google.subject=assertion.sub" \
+  --issuer-uri="https://token.actions.githubusercontent.com"
 
-  
+
+# === SECTION 4: SET SERVICE ACCOUNT PERMISSIONS ===
+
+# 4.1. Allow GitHub to impersonate the Service Account.
+gcloud iam service-accounts add-iam-policy-binding "sentiment-analysis-api@burnished-net-469105-s2.iam.gserviceaccount.com" \
+  --project="burnished-net-469105-s2" \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="principal://iam.googleapis.com/projects/958522348587/locations/global/workloadIdentityPools/github-pool-main/subject/repo:OMCHOKSI108/gcp-sentiment-analysis-api:ref:refs/heads/main"
+
+# 4.2. Grant the Service Account permission to write to Artifact Registry.
+gcloud projects add-iam-policy-binding "burnished-net-469105-s2" \
+  --member="serviceAccount:sentiment-analysis-api@burnished-net-469105-s2.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+
+# 4.3. (OPTIONAL but Recommended) Grant the Service Account the other necessary roles.
+# The `deploy-cloudrun` action also needs Cloud Run Admin and Service Account User roles.
+gcloud projects add-iam-policy-binding "burnished-net-469105-s2" \
+  --member="serviceAccount:sentiment-analysis-api@burnished-net-469105-s2.iam.gserviceaccount.com" \
+  --role="roles/run.admin"
+
+gcloud projects add-iam-policy-binding "burnished-net-469105-s2" \
+  --member="serviceAccount:sentiment-analysis-api@burnished-net-469105-s2.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser"
+
+
+============================================================
+
+OPTION 2: MANUAL SETUP IN GCP CONSOLE
+------------------------------------------------------------
+Perform these steps in the Google Cloud web console.
+
+1.  **Enable APIs:**
+    - In the search bar, find and ENABLE the following APIs: "Cloud Run Admin API", "Artifact Registry API", "IAM Service Account Credentials API".
+
+2.  **Create Artifact Registry Repository:**
+    - Search for "Artifact Registry".
+    - Click "Create Repository".
+    - Name: `sentiment-analysis-repo`
+    - Format: Docker
+    - Location: `us-central1`
+    - Click "Create".
+
+3.  **Create Workload Identity Pool & Provider:**
+    - Search for "Workload Identity Federation".
+    - Click "Create Pool".
+    - Name: `github-pool-main`. Click "Continue".
+    - For the Provider, select "OpenID Connect (OIDC)".
+    - Name: `github-provider`.
+    - Issuer (URL): `https://token.actions.githubusercontent.com`
+    - In "Attribute Mapping", click "Add Mapping".
+        - Google attribute: `google.subject`
+        - Assertion attribute: `assertion.sub`
+    - Continue and Save the provider.
+
+4.  **Set Service Account Permissions:**
+    - Search for "IAM & Admin" and go to "IAM".
+    - Find your service account: `sentiment-analysis-api@...`
+    - Click the pencil icon to edit its permissions.
+    - Click "Add Another Role" and add the following roles one by one:
+        - `Cloud Run Admin`
+        - `Service Account User`
+        - `Artifact Registry Writer`
+
+5.  **Grant Access to the Workload Identity:**
+    - While still editing the service account, go to the "Permissions" tab.
+    - Click "+ Grant Access".
+    - In the "New principals" box, paste the following long string:
+      `principal://iam.googleapis.com/projects/958522348587/locations/global/workloadIdentityPools/github-pool-main/subject/repo:OMCHOKSI108/gcp-sentiment-analysis-api:ref:refs/heads/main`
+    - In the "Assign roles" box, select the role `Workload Identity User`.
+    - Click "Save".
