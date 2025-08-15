@@ -1,0 +1,34 @@
+name: CI - Build and Push Container
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  # The name of the image will be ghcr.io/<your-github-username>/<your-repo-name>
+  # The tr command forces it to lowercase, which is required by Docker.
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Grant permission to push to GHCR
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }} # This is a temporary token, very secure
+
+    - name: Build and push Docker image
+      run: |
+        IMAGE_ID=$(echo $IMAGE_NAME | tr '[:upper:]' '[:lower:]')
+        docker build -t $IMAGE_ID:${{ github.sha }} .
+        docker push $IMAGE_ID:${{ github.sha }}
