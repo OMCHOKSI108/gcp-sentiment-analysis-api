@@ -17,6 +17,13 @@ curl -X POST https://sentiment-api-service-fzdu57t2fa-uc.a.run.app/predict \
     -H "Content-Type: application/json" \
     -d '{"text": "Your text here"}'
 ```
+
+## API Overview
+
+![API Architecture](assets/image_2.png)
+
+![Sample Response](assets/image.png)
+
 ## Quick Start
 
 ```bash
