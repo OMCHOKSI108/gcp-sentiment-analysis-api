@@ -6,6 +6,17 @@ Built with Python and containerized using Docker, this API is designed for simpl
 
 The API exposes two endpoints: a root endpoint (/) that confirms the service is running, and a prediction endpoint (/predict) that accepts POST requests with JSON payloads containing the text to analyze. It returns a structured response with the analyzed text, sentiment classification, and polarity score.
 
+## Live API
+
+The API is currently hosted at:
+https://sentiment-api-service-fzdu57t2fa-uc.a.run.app/
+
+Try it out with:
+```bash
+curl -X POST https://sentiment-api-service-fzdu57t2fa-uc.a.run.app/predict \
+    -H "Content-Type: application/json" \
+    -d '{"text": "Your text here"}'
+```
 ## Quick Start
 
 ```bash
